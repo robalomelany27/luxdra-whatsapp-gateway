@@ -66,8 +66,12 @@ app.post('/sessions/:eId/send', (req, res) => {
   if (!Array.isArray(destinatarios) || !destinatarios.length) {
     return res.status(400).json({ error: 'Sin destinatarios' });
   }
-  if (destinatarios.length > 150) {
-    return res.status(400).json({ error: 'Máximo 150 destinatarios por envío' });
+  // Tope alto (no es un límite "seguro" mágico, es solo para evitar un envío
+  // gigantesco por error de carga) — la protección real contra bloqueos está
+  // en el pacing de enviarLoteEnBackground (pausas aleatorias + pausas largas
+  // periódicas), no en cuántos destinatarios entran en un solo pedido.
+  if (destinatarios.length > 5000) {
+    return res.status(400).json({ error: 'Máximo 5000 destinatarios por envío' });
   }
 
   const entry = getSession(eId);

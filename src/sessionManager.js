@@ -110,13 +110,30 @@ async function sendMessage(eId, telefonoE164Digits, mensaje) {
   await entry.sock.sendMessage(jid, { text: mensaje });
 }
 
-// Manda una tanda de mensajes CON pausa entre cada uno (WhatsApp banea envíos
-// en ráfaga) y va registrando cada resultado en empresas/{eId}/logEnvios —
-// la misma colección que ya usa el resto de LUXDRA (recordatorios por email,
+// Pausa aleatoria entre min y max ms — un intervalo fijo (ej. siempre 1.2s)
+// es exactamente el patrón que un detector de automatización busca; variarlo
+// lo hace ver más humano.
+function randDelay(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+// Cada cuántos mensajes meter una pausa larga (simula que alguien deja el
+// teléfono un rato), y cuánto dura esa pausa.
+const CADA_N_MENSAJES_PAUSA_LARGA = 45;
+const PAUSA_LARGA_MIN_MS = 90 * 1000;   // 1.5 min
+const PAUSA_LARGA_MAX_MS = 240 * 1000;  // 4 min
+const PAUSA_CORTA_MIN_MS = 3500;
+const PAUSA_CORTA_MAX_MS = 8500;
+
+// Manda una tanda de mensajes con pausas (WhatsApp banea envíos en ráfaga,
+// sobre todo tandas grandes de 2000/4000+ a números que nunca escribieron
+// antes) y va registrando cada resultado en empresas/{eId}/logEnvios — la
+// misma colección que ya usa el resto de LUXDRA (recordatorios por email,
 // etc.) y que el cliente ya lee directo con el SDK de Firestore. Se llama
 // SIN await desde el endpoint HTTP, que responde de inmediato con el jobId:
-// una tanda de 150 mensajes a ~1.2s cada uno tarda minutos, muy por encima
-// de lo que aguanta una Netlify Function síncrona esperando la respuesta.
+// una tanda grande con estas pausas puede tardar horas, muy por encima de lo
+// que aguanta una Netlify Function síncrona esperando la respuesta — y es a
+// propósito: para un volumen así, mandar rápido es lo que provoca el bloqueo.
 async function enviarLoteEnBackground(eId, jobId, destinatarios) {
   const logsRef = db.collection('empresas').doc(eId).collection('logEnvios');
   for (let i = 0; i < destinatarios.length; i++) {
@@ -138,7 +155,12 @@ async function enviarLoteEnBackground(eId, jobId, destinatarios) {
       destinatario: d.nombre || telefono || '?', telefono, ok, error,
       fecha: new Date().toISOString(),
     }).catch(() => {});
-    if (i < destinatarios.length - 1) await sleep(1200);
+    if (i < destinatarios.length - 1) {
+      const tocaPausaLarga = (i + 1) % CADA_N_MENSAJES_PAUSA_LARGA === 0;
+      await sleep(tocaPausaLarga
+        ? randDelay(PAUSA_LARGA_MIN_MS, PAUSA_LARGA_MAX_MS)
+        : randDelay(PAUSA_CORTA_MIN_MS, PAUSA_CORTA_MAX_MS));
+    }
   }
 }
 
