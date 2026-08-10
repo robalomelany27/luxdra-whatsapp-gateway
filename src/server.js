@@ -7,6 +7,23 @@
 // endpoints (salvo /health) exigen el header x-gateway-secret con el mismo
 // valor que GATEWAY_SECRET acá. El browser jamás conoce ese secreto.
 // ══════════════════════════════════════════════════════════════════
+// Baileys dispara internamente pedidos de reenvío (sendRetryRequest) cuando
+// no puede desencriptar un mensaje entrante — algo frecuente y normal en
+// una sesión multidispositivo. Si en ese instante el socket de ESA clínica ya
+// se cortó, esa llamada interna rechaza la promesa fuera de cualquier
+// try/catch nuestro. Sin este handler, esa única falla tumbaba TODO el
+// proceso (y con él, el WhatsApp de todas las demás clínicas) — Railway lo
+// reiniciaba y volvía a caer en segundos, dejando el gateway en crash-loop
+// permanente. La reconexión de la sesión puntual ya la maneja el evento
+// connection.update en sessionManager.js; acá solo evitamos que tire abajo
+// a las demás.
+process.on('unhandledRejection', (reason) => {
+  console.error('unhandledRejection (no se cae el proceso):', reason?.message || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException (no se cae el proceso):', err?.message || err);
+});
+
 const express = require('express');
 const { startSession, stopSession, sendMessage, enviarLoteEnBackground, nuevoJobId, getSession, restoreAllSessions } = require('./sessionManager');
 const { normalizeArgPhone } = require('./phone');
