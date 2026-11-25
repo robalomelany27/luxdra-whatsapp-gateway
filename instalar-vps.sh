@@ -25,5 +25,5 @@ docker build -q -t luxdra-wa .
 docker rm -f luxdra-wa 2>/dev/null || true
 shred -u "$H/GATEWAY_SECRET.txt" "$H/FIREBASE_JSON_una_linea.txt" 2>/dev/null || true
 docker run -d --name luxdra-wa --restart unless-stopped --env-file .env -p 127.0.0.1:3000:3000 luxdra-wa
-echo "$DOM { reverse_proxy 127.0.0.1:3000 }" > /etc/caddy/Caddyfile && systemctl reload caddy
+printf '%s {\n  reverse_proxy 127.0.0.1:3000\n}\n' "$DOM" > /etc/caddy/Caddyfile && systemctl restart caddy
 sleep 4; curl -s http://127.0.0.1:3000/health && echo " <- el servicio responde. URL: https://$DOM"

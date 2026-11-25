@@ -20,7 +20,7 @@ docker run -d --name luxdra-wa --restart unless-stopped --env-file .env -p 127.0
 HTTPS (Caddy, un solo comando de configuración):
 ```bash
 apt install -y caddy
-echo 'wa.tudominio.com { reverse_proxy 127.0.0.1:3000 }' > /etc/caddy/Caddyfile && systemctl reload caddy
+printf 'wa.tudominio.com {\n  reverse_proxy 127.0.0.1:3000\n}\n' > /etc/caddy/Caddyfile && systemctl restart caddy
 ```
 Apuntá el DNS `wa.tudominio.com` al IP del VPS. `GATEWAY_URL` en Netlify = `https://wa.tudominio.com`.
 
