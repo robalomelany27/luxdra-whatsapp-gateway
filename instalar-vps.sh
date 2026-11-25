@@ -2,6 +2,8 @@
 # Instalación completa en un VPS Ubuntu. Uso:  bash instalar-vps.sh wa.tudominio.com
 set -e
 DOM="${1:?Falta el dominio, ej: bash instalar-vps.sh wa.tudominio.com}"
+# Servidores de 1 GB (Google e2-micro): crear memoria de intercambio para poder construir la imagen
+if [ "$(free -m | awk '/Mem:/{print $2}')" -lt 1500 ] && ! swapon --show | grep -q .; then fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab; fi
 command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh
 apt-get install -y -qq caddy git >/dev/null
 [ -d /opt/gateway ] || git clone https://github.com/robalomelany27/luxdra-whatsapp-gateway.git /opt/gateway
