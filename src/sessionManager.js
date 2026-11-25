@@ -20,6 +20,10 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
 
 // eId -> { sock, status: 'connecting'|'qr_pending'|'connected'|'disconnected', qrDataUrl, number, startedAt }
 const sessions = new Map();
+// Mensajes enviados recientemente: WhatsApp los pide de nuevo cuando el destinatario no pudo descifrarlos
+// ("Esperando el mensaje..."). Sin esto el reintento falla y el mensaje queda vacío.
+const enviados = new Map();
+function recordarEnviado(sent) { try { if (sent && sent.key && sent.key.id && sent.message) { enviados.set(sent.key.id, sent.message); if (enviados.size > 1000) enviados.delete(enviados.keys().next().value); } } catch (_) {} }
 
 function getSession(eId) {
   return sessions.get(eId) || { status: 'disconnected' };
@@ -45,6 +49,7 @@ async function startSession(eId, { force, phone } = {}) {
     // sincronice historial de chats viejos, solo necesitamos poder MANDAR.
     syncFullHistory: false,
     printQRInTerminal: false,
+    getMessage: async (key) => (key && enviados.get(key.id)) || undefined,
     browser: ['LUXDRA', 'Chrome', '1.0.0'],
   });
   entry.sock = sock;
@@ -115,7 +120,8 @@ async function sendMessage(eId, telefonoE164Digits, mensaje) {
     throw err;
   }
   const jid = `${telefonoE164Digits}@s.whatsapp.net`;
-  await entry.sock.sendMessage(jid, { text: mensaje });
+  const sent = await entry.sock.sendMessage(jid, { text: mensaje });
+  recordarEnviado(sent);
 }
 
 // Pausa aleatoria entre min y max ms — un intervalo fijo (ej. siempre 1.2s)
