@@ -25,13 +25,13 @@ function getSession(eId) {
   return sessions.get(eId) || { status: 'disconnected' };
 }
 
-async function startSession(eId, { force } = {}) {
+async function startSession(eId, { force, phone } = {}) {
   const existing = sessions.get(eId);
-  if (existing && (existing.status === 'connected' || existing.status === 'qr_pending' || existing.status === 'connecting') && !force) {
+  if (existing && (existing.status === 'connected' || existing.status === 'qr_pending' || existing.status === 'connecting') && !force && !phone) {
     return existing;
   }
 
-  const entry = { status: 'connecting', qrDataUrl: null, number: null, sock: null, startedAt: Date.now() };
+  const entry = { status: 'connecting', qrDataUrl: null, pairingCode: null, pairPhone: phone ? String(phone).replace(/\D/g, '') : null, number: null, sock: null, startedAt: Date.now() };
   sessions.set(eId, entry);
 
   const { state, saveCreds } = await useFirestoreAuthState(db, eId);
@@ -57,11 +57,19 @@ async function startSession(eId, { force } = {}) {
     if (qr) {
       entry.status = 'qr_pending';
       entry.qrDataUrl = await QRCode.toDataURL(qr).catch(() => null);
+      // Vincular con código (sin escanear): se pide una sola vez, cuando el socket ya está listo
+      if (entry.pairPhone && !entry.pairingCode && !sock.authState.creds.registered) {
+        try {
+          const raw = await sock.requestPairingCode(entry.pairPhone);
+          entry.pairingCode = raw ? String(raw).replace(/(.{4})(.{4})/, '$1-$2') : null;
+        } catch (err) { logger.warn(`[${eId}] no se pudo generar el código de vinculación: ${err.message}`); }
+      }
     }
 
     if (connection === 'open') {
       entry.status = 'connected';
       entry.qrDataUrl = null;
+      entry.pairingCode = null;
       entry.number = sock.user?.id?.split(':')[0] || sock.user?.id || null;
       logger.info(`[${eId}] WhatsApp conectado: ${entry.number}`);
     }

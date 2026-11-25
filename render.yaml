@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: luxdra-whatsapp-gateway
+    runtime: docker
+    plan: starter
+    numInstances: 1        # una sola instancia: las sesiones viven en memoria
+    healthCheckPath: /health
+    envVars:
+      - key: GATEWAY_SECRET
+        sync: false        # se carga a mano en el panel
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false        # se carga a mano en el panel

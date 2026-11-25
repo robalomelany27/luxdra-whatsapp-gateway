@@ -51,8 +51,10 @@ app.use(requireSecret);
 
 app.post('/sessions/:eId/start', async (req, res) => {
   try {
-    const entry = await startSession(req.params.eId, { force: req.body?.force === true });
-    res.json({ status: entry.status, qrDataUrl: entry.qrDataUrl, number: entry.number });
+    const entry = await startSession(req.params.eId, { force: req.body?.force === true || !!req.body?.phone, phone: req.body?.phone ? normalizeArgPhone(req.body.phone) : undefined });
+    // con teléfono, el código se genera en segundo plano: se espera hasta ~8 s para devolverlo
+    for (let i = 0; req.body?.phone && !entry.pairingCode && entry.status !== 'connected' && i < 32; i++) await new Promise(r => setTimeout(r, 250));
+    res.json({ status: entry.status, qrDataUrl: entry.qrDataUrl, pairingCode: entry.pairingCode || null, number: entry.number });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -60,7 +62,7 @@ app.post('/sessions/:eId/start', async (req, res) => {
 
 app.get('/sessions/:eId/status', (req, res) => {
   const entry = getSession(req.params.eId);
-  res.json({ status: entry.status, qrDataUrl: entry.qrDataUrl || null, number: entry.number || null });
+  res.json({ status: entry.status, qrDataUrl: entry.qrDataUrl || null, pairingCode: entry.pairingCode || null, number: entry.number || null });
 });
 
 app.post('/sessions/:eId/logout', async (req, res) => {
