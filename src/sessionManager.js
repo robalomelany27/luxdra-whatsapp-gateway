@@ -6,7 +6,7 @@
 // reconecta solas a todas las clínicas que ya habían escaneado el QR antes,
 // sin que nadie tenga que volver a escanear nada.
 // ══════════════════════════════════════════════════════════════════
-const { default: makeWASocket, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 const pino = require('pino');
 const crypto = require('crypto');
@@ -43,7 +43,8 @@ async function startSession(eId, { force, phone } = {}) {
 
   const sock = makeWASocket({
     version,
-    auth: state,
+    // Con las claves en Firestore (lentas), el almacén con caché evita condiciones de carrera al cifrar/descifrar
+    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, logger) },
     logger,
     // La agenda ya se manda por email con .ics — acá no hace falta que Baileys
     // sincronice historial de chats viejos, solo necesitamos poder MANDAR.
